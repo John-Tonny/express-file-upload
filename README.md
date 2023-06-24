@@ -52,4 +52,45 @@ npm install
 ### Run
 ```
 node server.js
-```
+
+
+### update
+node 16.18.0
+修改node_modules/multer/storage/disk.js
+
+DiskStorage.prototype._handleFile = function _handleFile (req, file, cb) {
+  var that = this
+
+  that.getDestination(req, file, function (err, destination) {
+    if (err) return cb(err)
+
+    that.getFilename(req, file, function (err, filename) {
+      if (err) return cb(err)
+
+      var fsHash = crypto.createHash('sha256')
+      var finalPath = path.join(destination, filename)
+      var outStream = fs.createWriteStream(finalPath)
+      file.stream.pipe(outStream)
+      outStream.on('error', cb)
+      file.stream.on('data', function (data) {
+        fsHash.update(data)
+      })
+      outStream.on('finish', function () {
+        var newfilename = fsHash.digest('hex') + path.extname(filename)
+        if(fs.existsSync(path.join(destination, newfilename))){
+          fs.unlinkSync(finalPath)
+        }else{
+          fs.renameSync(finalPath, path.join(destination, newfilename))
+        }
+        return cb(null, {
+          destination: destination,
+          filename: newfilename,
+          path: finalPath,
+          size: outStream.bytesWritten
+        })
+      })
+    })
+  })
+}
+
+`
